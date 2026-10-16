@@ -1,0 +1,290 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QA Crédito API — Java",
+    "description": "API educacional de análise fictícia de crédito. As regras não representam políticas reais de concessão de crédito e não possuem vínculo com empresas. Utilize apenas dados fictícios.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Servidor atual"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Disponibilidade",
+      "description": "Consulta de disponibilidade da aplicação."
+    },
+    {
+      "name": "Análise de crédito",
+      "description": "Análise de solicitações com critérios fictícios de idade, renda e valor solicitado."
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Disponibilidade"
+        ],
+        "summary": "Consultar disponibilidade",
+        "description": "Informa se a aplicação está respondendo. Não verifica banco de dados ou serviços externos.",
+        "operationId": "consultarDisponibilidade",
+        "responses": {
+          "200": {
+            "description": "Aplicação disponível.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Disponibilidade"
+                },
+                "example": {
+                  "status": "UP"
+                }
+              }
+            }
+          },
+          "405": {
+            "$ref": "#/components/responses/MetodoNaoPermitido"
+          }
+        }
+      }
+    },
+    "/analises-credito": {
+      "post": {
+        "tags": [
+          "Análise de crédito"
+        ],
+        "summary": "Analisar solicitação de crédito",
+        "description": "Uma solicitação válida é aprovada quando a idade é igual ou superior a 18 anos, a renda mensal é igual ou superior a R$ 2.000,00 e o valor solicitado não ultrapassa cinco vezes a renda. A reprovação por critérios de negócio também retorna HTTP 200, com os respectivos motivos.",
+        "operationId": "analisarCredito",
+        "requestBody": {
+          "required": true,
+          "description": "Dados fictícios para análise. Todos os campos são obrigatórios.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitacaoCredito"
+              },
+              "examples": {
+                "aprovacao": {
+                  "summary": "Solicitação aprovada",
+                  "value": {
+                    "idade": 30,
+                    "rendaMensal": 3000.00,
+                    "valorSolicitado": 10000.00
+                  }
+                },
+                "limitesExatos": {
+                  "summary": "Limites exatos de aprovação",
+                  "value": {
+                    "idade": 18,
+                    "rendaMensal": 2000.00,
+                    "valorSolicitado": 10000.00
+                  }
+                },
+                "reprovacaoPorIdade": {
+                  "summary": "Reprovação por idade",
+                  "value": {
+                    "idade": 17,
+                    "rendaMensal": 3000.00,
+                    "valorSolicitado": 10000.00
+                  }
+                },
+                "multiplosMotivos": {
+                  "summary": "Reprovação por múltiplos critérios",
+                  "value": {
+                    "idade": 17,
+                    "rendaMensal": 1000.00,
+                    "valorSolicitado": 6000.00
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Análise realizada. Consulte o campo status para identificar aprovação ou reprovação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoAnalise"
+                },
+                "examples": {
+                  "aprovado": {
+                    "summary": "Crédito aprovado",
+                    "value": {
+                      "status": "APROVADO",
+                      "motivos": []
+                    }
+                  },
+                  "reprovado": {
+                    "summary": "Crédito reprovado por idade",
+                    "value": {
+                      "status": "REPROVADO",
+                      "motivos": [
+                        "Solicitante deve ter pelo menos 18 anos."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformado, campos obrigatórios ausentes ou dados inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "idadeInvalida": {
+                    "summary": "Idade fora do intervalo permitido",
+                    "value": {
+                      "erro": "Idade deve ser um número inteiro entre 0 e 120."
+                    }
+                  },
+                  "jsonInvalido": {
+                    "summary": "JSON malformado",
+                    "value": {
+                      "erro": "JSON inválido."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "$ref": "#/components/responses/MetodoNaoPermitido"
+          },
+          "415": {
+            "description": "Content-Type não aceito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "example": {
+                  "erro": "Utilize Content-Type application/json."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Disponibilidade": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "UP"
+            ],
+            "description": "Estado de disponibilidade da aplicação."
+          }
+        }
+      },
+      "SolicitacaoCredito": {
+        "type": "object",
+        "required": [
+          "idade",
+          "rendaMensal",
+          "valorSolicitado"
+        ],
+        "properties": {
+          "idade": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120,
+            "description": "Idade em anos. Para aprovação, deve ser igual ou superior a 18.",
+            "example": 30
+          },
+          "rendaMensal": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "multipleOf": 0.01,
+            "description": "Renda mensal positiva, em reais, com no máximo duas casas decimais. Para aprovação, deve ser igual ou superior a R$ 2.000,00.",
+            "example": 3000.00
+          },
+          "valorSolicitado": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "multipleOf": 0.01,
+            "description": "Valor solicitado positivo, em reais, com no máximo duas casas decimais. Para aprovação, não pode ultrapassar cinco vezes a renda mensal.",
+            "example": 10000.00
+          }
+        }
+      },
+      "ResultadoAnalise": {
+        "type": "object",
+        "required": [
+          "status",
+          "motivos"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "APROVADO",
+              "REPROVADO"
+            ],
+            "description": "Resultado da análise das regras de negócio."
+          },
+          "motivos": {
+            "type": "array",
+            "description": "Motivos da reprovação. Lista vazia quando a solicitação é aprovada.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Erro": {
+        "type": "object",
+        "required": [
+          "erro"
+        ],
+        "properties": {
+          "erro": {
+            "type": "string",
+            "description": "Descrição do erro encontrado."
+          }
+        }
+      }
+    },
+    "responses": {
+      "MetodoNaoPermitido": {
+        "description": "Método HTTP não permitido para o endpoint.",
+        "headers": {
+          "Allow": {
+            "description": "Método HTTP aceito pelo endpoint.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Erro"
+            },
+            "example": {
+              "erro": "Método HTTP não permitido."
+            }
+          }
+        }
+      }
+    }
+  }
+}

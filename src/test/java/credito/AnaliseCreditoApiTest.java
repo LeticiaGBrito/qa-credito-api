@@ -17,6 +17,7 @@ class AnaliseCreditoApiTest {
 
     @BeforeAll
     static void iniciarApi() throws IOException {
+        // A porta zero permite que o sistema escolha uma porta disponível.
         api = new CreditoApi(0);
         api.iniciar();
         enderecoApi = api.endereco();
@@ -28,6 +29,10 @@ class AnaliseCreditoApiTest {
             api.close();
         }
     }
+
+    // ========================================
+    // ANÁLISE DE CRÉDITO
+    // ========================================
 
     @Test
     @DisplayName("Deve aprovar uma solicitação válida via HTTP")
@@ -102,6 +107,7 @@ class AnaliseCreditoApiTest {
                         "Idade, renda mensal e valor solicitado são obrigatórios."
                 ));
     }
+
     @Test
     @DisplayName("Deve aprovar uma solicitação nos limites mínimos e máximos")
     void deveAprovarNosLimites() {
@@ -208,6 +214,147 @@ class AnaliseCreditoApiTest {
                 .contentType("application/json")
                 .body("erro", equalTo(
                         "Utilize Content-Type application/json."
+                ));
+    }
+
+    // ========================================
+    // DOCUMENTAÇÃO SWAGGER E OPENAPI
+    // ========================================
+
+    @Test
+    @DisplayName("Deve disponibilizar o HTML do Swagger em /docs")
+    void deveDisponibilizarSwagger() {
+        given()
+                .baseUri(enderecoApi)
+                .log().ifValidationFails()
+                .when()
+                .get("/docs")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .contentType("text/html")
+                .body(containsString("SwaggerUIBundle"))
+                .body(containsString("id=\"swagger-ui\""))
+                .body(containsString("url: \"/openapi.json\""));
+    }
+
+    @Test
+    @DisplayName("Deve disponibilizar o Swagger com barra final em /docs/")
+    void deveDisponibilizarSwaggerComBarraFinal() {
+        given()
+                .baseUri(enderecoApi)
+                .log().ifValidationFails()
+                .when()
+                .get("/docs/")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .contentType("text/html")
+                .body(containsString("SwaggerUIBundle"))
+                .body(containsString("url: \"/openapi.json\""));
+    }
+
+    @Test
+    @DisplayName("Deve disponibilizar a especificação OpenAPI com os endpoints")
+    void deveDisponibilizarEspecificacaoOpenApi() {
+        given()
+                .baseUri(enderecoApi)
+                .log().ifValidationFails()
+                .when()
+                .get("/openapi.json")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .contentType("application/json")
+                .body("openapi", equalTo("3.0.3"))
+                .body("info.title", equalTo("QA Crédito API — Java"))
+                .body("servers[0].url", equalTo("/"))
+                .body("paths", hasKey("/health"))
+                .body("paths", hasKey("/analises-credito"))
+                .body("paths.'/health'", hasKey("get"))
+                .body("paths.'/analises-credito'", hasKey("post"))
+                .body(
+                        "components.schemas.SolicitacaoCredito.required",
+                        containsInAnyOrder(
+                                "idade",
+                                "rendaMensal",
+                                "valorSolicitado"
+                        )
+                )
+                .body(
+                        "components.schemas.ResultadoAnalise"
+                                + ".properties.status.enum",
+                        containsInAnyOrder("APROVADO", "REPROVADO")
+                );
+    }
+
+    @Test
+    @DisplayName("Deve retornar HTTP 405 para POST na documentação Swagger")
+    void deveRejeitarPostNoSwagger() {
+        given()
+                .baseUri(enderecoApi)
+                .log().ifValidationFails()
+                .when()
+                .post("/docs")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(405)
+                .header("Allow", equalTo("GET"))
+                .contentType("application/json")
+                .body("erro", equalTo(
+                        "Método HTTP não permitido."
+                ));
+    }
+
+    @Test
+    @DisplayName("Deve retornar HTTP 405 para POST na especificação OpenAPI")
+    void deveRejeitarPostNaEspecificacao() {
+        given()
+                .baseUri(enderecoApi)
+                .log().ifValidationFails()
+                .when()
+                .post("/openapi.json")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(405)
+                .header("Allow", equalTo("GET"))
+                .contentType("application/json")
+                .body("erro", equalTo(
+                        "Método HTTP não permitido."
+                ));
+    }
+
+    @Test
+    @DisplayName("Deve retornar HTTP 404 para subcaminho inexistente em /docs")
+    void deveRejeitarSubcaminhoDoSwagger() {
+        given()
+                .baseUri(enderecoApi)
+                .log().ifValidationFails()
+                .when()
+                .get("/docs/inexistente")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(404)
+                .contentType("application/json")
+                .body("erro", equalTo(
+                        "Endpoint não encontrado."
+                ));
+    }
+
+    @Test
+    @DisplayName("Deve retornar HTTP 404 para sufixo inválido em /openapi.json")
+    void deveRejeitarSufixoDaEspecificacao() {
+        given()
+                .baseUri(enderecoApi)
+                .log().ifValidationFails()
+                .when()
+                .get("/openapi.json/inexistente")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(404)
+                .contentType("application/json")
+                .body("erro", equalTo(
+                        "Endpoint não encontrado."
                 ));
     }
 }

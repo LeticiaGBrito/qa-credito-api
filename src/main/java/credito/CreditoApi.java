@@ -26,6 +26,95 @@ public class CreditoApi implements AutoCloseable {
             .setStrictness(Strictness.STRICT)
             .create();
 
+    /*
+     * Interface Swagger UI.
+     * A especificação é consultada na própria API.
+     * Os arquivos visuais são carregados por CDN.
+     */
+    private static final String SWAGGER_HTML = """
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport"
+                      content="width=device-width, initial-scale=1.0">
+
+                <title>QA Crédito API — Java</title>
+
+                <link
+                    rel="stylesheet"
+                    href="https://unpkg.com/swagger-ui-dist@5.32.0/swagger-ui.css"
+                >
+
+                <style>
+                    body {
+                        margin: 0;
+                        background: #fafafa;
+                    }
+
+                    .aviso {
+                        padding: 14px 20px;
+                        background: #e2f2ef;
+                        color: #123047;
+                        font-family: Arial, sans-serif;
+                        font-size: 14px;
+                        line-height: 1.6;
+                    }
+
+                    .aviso a {
+                        color: #123047;
+                    }
+                </style>
+            </head>
+
+            <body>
+                <div class="aviso">
+                    <strong>Projeto educacional.</strong>
+                    Utilize apenas dados fictícios.
+                    As regras não representam políticas reais
+                    de concessão de crédito.
+                    <a href="/openapi.json">Consultar OpenAPI JSON</a>
+                </div>
+
+                <div id="swagger-ui"></div>
+
+                <noscript>
+                    Ative o JavaScript para utilizar a documentação
+                    interativa da API.
+                </noscript>
+
+                <script
+                    src="https://unpkg.com/swagger-ui-dist@5.32.0/swagger-ui-bundle.js"
+                    crossorigin="anonymous"
+                ></script>
+
+                <script>
+                    window.onload = function () {
+                        if (typeof SwaggerUIBundle === "undefined") {
+                            document.getElementById("swagger-ui").textContent =
+                                "Não foi possível carregar o Swagger UI. "
+                                + "Verifique sua conexão com a internet.";
+                            return;
+                        }
+
+                        window.ui = SwaggerUIBundle({
+                            url: "/openapi.json",
+                            dom_id: "#swagger-ui",
+                            deepLinking: true,
+                            displayRequestDuration: true,
+                            validatorUrl: null,
+                            persistAuthorization: false,
+                            presets: [
+                                SwaggerUIBundle.presets.apis
+                            ],
+                            layout: "BaseLayout"
+                        });
+                    };
+                </script>
+            </body>
+            </html>
+            """;
+
     // Mantém a execução local utilizada pelos testes.
     public CreditoApi(int porta) throws IOException {
         this("127.0.0.1", porta);
@@ -45,6 +134,16 @@ public class CreditoApi implements AutoCloseable {
         servidor.createContext(
                 "/analises-credito",
                 this::analisarCredito
+        );
+
+        servidor.createContext(
+                "/docs",
+                this::exibirDocumentacao
+        );
+
+        servidor.createContext(
+                "/openapi.json",
+                this::exibirEspecificacao
         );
     }
 
@@ -91,6 +190,71 @@ public class CreditoApi implements AutoCloseable {
             }
 
             responder(requisicao, 200, Map.of("status", "UP"));
+        } finally {
+            requisicao.close();
+        }
+    }
+
+    /*
+     * Exibe a interface Swagger em /docs.
+     * Também aceita /docs/ para facilitar o acesso pelo navegador.
+     */
+    private void exibirDocumentacao(
+            HttpExchange requisicao
+    ) throws IOException {
+        try {
+            String caminho = requisicao.getRequestURI().getPath();
+
+            String rotaEsperada = "/docs/".equals(caminho)
+                    ? "/docs/"
+                    : "/docs";
+
+            if (!validarRota(requisicao, rotaEsperada, "GET")) {
+                return;
+            }
+
+            responderBytes(
+                    requisicao,
+                    200,
+                    "text/html; charset=UTF-8",
+                    SWAGGER_HTML.getBytes(StandardCharsets.UTF_8)
+            );
+        } finally {
+            requisicao.close();
+        }
+    }
+
+    /*
+     * Disponibiliza a especificação OpenAPI.
+     * O arquivo é carregado do classpath, funcionando também
+     * quando a aplicação é empacotada em JAR e executada no Docker.
+     */
+    private void exibirEspecificacao(
+            HttpExchange requisicao
+    ) throws IOException {
+        try {
+            if (!validarRota(requisicao, "/openapi.json", "GET")) {
+                return;
+            }
+
+            try (var arquivo = CreditoApi.class.getResourceAsStream(
+                    "/openapi.json"
+            )) {
+                if (arquivo == null) {
+                    responder(requisicao, 500, Map.of(
+                            "erro",
+                            "Especificação OpenAPI não encontrada."
+                    ));
+                    return;
+                }
+
+                responderBytes(
+                        requisicao,
+                        200,
+                        "application/json; charset=UTF-8",
+                        arquivo.readAllBytes()
+                );
+            }
         } finally {
             requisicao.close();
         }
@@ -192,6 +356,7 @@ public class CreditoApi implements AutoCloseable {
         return valor.getAsBigDecimal();
     }
 
+    // Converte objetos Java em uma resposta JSON.
     private void responder(
             HttpExchange requisicao,
             int statusHttp,
@@ -200,9 +365,24 @@ public class CreditoApi implements AutoCloseable {
         byte[] resposta = gson.toJson(conteudo)
                 .getBytes(StandardCharsets.UTF_8);
 
+        responderBytes(
+                requisicao,
+                statusHttp,
+                "application/json; charset=UTF-8",
+                resposta
+        );
+    }
+
+    // Envia JSON, HTML ou outros conteúdos já convertidos em bytes.
+    private void responderBytes(
+            HttpExchange requisicao,
+            int statusHttp,
+            String contentType,
+            byte[] resposta
+    ) throws IOException {
         requisicao.getResponseHeaders().set(
                 "Content-Type",
-                "application/json; charset=UTF-8"
+                contentType
         );
 
         requisicao.sendResponseHeaders(
@@ -247,6 +427,18 @@ public class CreditoApi implements AutoCloseable {
                 "Consulta local de disponibilidade: "
                         + api.endereco()
                         + "/health"
+        );
+
+        System.out.println(
+                "Documentação Swagger local: "
+                        + api.endereco()
+                        + "/docs"
+        );
+
+        System.out.println(
+                "Especificação OpenAPI local: "
+                        + api.endereco()
+                        + "/openapi.json"
         );
     }
 }
