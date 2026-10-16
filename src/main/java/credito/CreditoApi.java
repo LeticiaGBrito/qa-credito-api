@@ -42,6 +42,12 @@ public class CreditoApi implements AutoCloseable {
                 <title>QA Crédito API — Java</title>
 
                 <link
+                    rel="icon"
+                    type="image/svg+xml"
+                    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23087f8c'/%3E%3Ctext x='32' y='33' dominant-baseline='middle' text-anchor='middle' font-family='Arial,sans-serif' font-size='30' font-weight='700' fill='white'%3ELG%3C/text%3E%3C/svg%3E"
+                >
+
+                <link
                     rel="stylesheet"
                     href="https://unpkg.com/swagger-ui-dist@5.32.0/swagger-ui.css"
                 >
