@@ -1,4 +1,4 @@
-name: Testes automatizados
+name: Testes e deploy
 
 on:
   push:
@@ -9,6 +9,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: credito-api-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   testes:
@@ -42,3 +46,43 @@ jobs:
             build/test-results/test/
           if-no-files-found: warn
           retention-days: 14
+
+  deploy:
+    name: Solicitar deploy no Render
+    needs: testes
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' ||
+       github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Publicar o commit aprovado nos testes
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::error::O segredo RENDER_DEPLOY_HOOK_URL não foi configurado."
+            exit 1
+          fi
+
+          if [[ "$DEPLOY_HOOK" == *"?"* ]]; then
+            SEPARADOR="&"
+          else
+            SEPARADOR="?"
+          fi
+
+          curl --fail --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 60 \
+            --output /dev/null \
+            --request POST \
+            "${DEPLOY_HOOK}${SEPARADOR}ref=${COMMIT_SHA}"
+
+          echo "Solicitação aceita pelo Render para o commit ${COMMIT_SHA}."
+          echo "Acompanhe a conclusão da publicação no painel do Render."
