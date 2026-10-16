@@ -1,0 +1,24 @@
+# Histórico do Git e configurações do GitHub
+.git
+.github
+
+# Arquivos locais do Gradle e resultados de compilação
+.gradle
+build
+out
+
+# Configurações das IDEs
+.idea
+.vscode
+*.iml
+
+# Documentação não utilizada na construção da aplicação
+docs
+README.md
+
+# Arquivos locais e variáveis de ambiente
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db

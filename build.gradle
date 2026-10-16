@@ -1,9 +1,16 @@
 plugins {
     id 'java'
+    id 'application'
 }
 
 group = 'br.com.leticia.qa'
 version = '1.0-SNAPSHOT'
+
+// Configura a classe principal e o nome da aplicação empacotada.
+application {
+    mainClass = 'credito.CreditoApi'
+    applicationName = 'credito-api'
+}
 
 java {
     toolchain {

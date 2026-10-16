@@ -18,6 +18,7 @@ import java.util.Map;
 public class CreditoApi implements AutoCloseable {
 
     private final HttpServer servidor;
+
     private final AnaliseCreditoService service =
             new AnaliseCreditoService();
 
@@ -25,21 +26,36 @@ public class CreditoApi implements AutoCloseable {
             .setStrictness(Strictness.STRICT)
             .create();
 
+    // Mantém a execução local utilizada pelos testes.
     public CreditoApi(int porta) throws IOException {
+        this("127.0.0.1", porta);
+    }
+
+    // Permite configurar o endereço de escuta na hospedagem.
+    public CreditoApi(String host, int porta) throws IOException {
         servidor = HttpServer.create(
-                new InetSocketAddress("127.0.0.1", porta), 0
+                new InetSocketAddress(host, porta), 0
         );
 
-        servidor.createContext("/health", this::verificarDisponibilidade);
-        servidor.createContext("/analises-credito", this::analisarCredito);
+        servidor.createContext(
+                "/health",
+                this::verificarDisponibilidade
+        );
+
+        servidor.createContext(
+                "/analises-credito",
+                this::analisarCredito
+        );
     }
 
     public void iniciar() {
         servidor.start();
     }
 
+    // Endereço para consultas locais, incluindo os testes.
     public String endereco() {
-        return "http://127.0.0.1:" + servidor.getAddress().getPort();
+        return "http://127.0.0.1:"
+                + servidor.getAddress().getPort();
     }
 
     private boolean validarRota(
@@ -84,7 +100,11 @@ public class CreditoApi implements AutoCloseable {
             HttpExchange requisicao
     ) throws IOException {
         try {
-            if (!validarRota(requisicao, "/analises-credito", "POST")) {
+            if (!validarRota(
+                    requisicao,
+                    "/analises-credito",
+                    "POST"
+            )) {
                 return;
             }
 
@@ -92,10 +112,11 @@ public class CreditoApi implements AutoCloseable {
                     .getFirst("Content-Type");
 
             if (contentType == null
-                    || !contentType.split(";")[0].trim()
+                    || !contentType.split(";", 2)[0].trim()
                     .equalsIgnoreCase("application/json")) {
                 responder(requisicao, 415, Map.of(
-                        "erro", "Utilize Content-Type application/json."
+                        "erro",
+                        "Utilize Content-Type application/json."
                 ));
                 return;
             }
@@ -105,7 +126,10 @@ public class CreditoApi implements AutoCloseable {
                     StandardCharsets.UTF_8
             );
 
-            JsonElement json = gson.fromJson(corpo, JsonElement.class);
+            JsonElement json = gson.fromJson(
+                    corpo,
+                    JsonElement.class
+            );
 
             if (json == null || !json.isJsonObject()) {
                 throw new IllegalArgumentException(
@@ -148,7 +172,10 @@ public class CreditoApi implements AutoCloseable {
         }
     }
 
-    private BigDecimal lerNumero(JsonObject dados, String campo) {
+    private BigDecimal lerNumero(
+            JsonObject dados,
+            String campo
+    ) {
         JsonElement valor = dados.get(campo);
 
         if (valor == null || valor.isJsonNull()) {
@@ -174,10 +201,14 @@ public class CreditoApi implements AutoCloseable {
                 .getBytes(StandardCharsets.UTF_8);
 
         requisicao.getResponseHeaders().set(
-                "Content-Type", "application/json; charset=UTF-8"
+                "Content-Type",
+                "application/json; charset=UTF-8"
         );
 
-        requisicao.sendResponseHeaders(statusHttp, resposta.length);
+        requisicao.sendResponseHeaders(
+                statusHttp,
+                resposta.length
+        );
 
         try (var saida = requisicao.getResponseBody()) {
             saida.write(resposta);
@@ -190,7 +221,14 @@ public class CreditoApi implements AutoCloseable {
     }
 
     public static void main(String[] args) throws IOException {
-        CreditoApi api = new CreditoApi(8080);
+        String host = System.getenv()
+                .getOrDefault("HOST", "127.0.0.1");
+
+        int porta = Integer.parseInt(
+                System.getenv().getOrDefault("PORT", "8080")
+        );
+
+        CreditoApi api = new CreditoApi(host, porta);
 
         Runtime.getRuntime().addShutdownHook(
                 new Thread(api::close)
@@ -198,7 +236,17 @@ public class CreditoApi implements AutoCloseable {
 
         api.iniciar();
 
-        System.out.println("API disponível em " + api.endereco());
-        System.out.println("Para encerrar, clique em Stop no IntelliJ.");
+        System.out.println(
+                "API iniciada no endereço "
+                        + host
+                        + ", porta "
+                        + porta
+        );
+
+        System.out.println(
+                "Consulta local de disponibilidade: "
+                        + api.endereco()
+                        + "/health"
+        );
     }
 }
