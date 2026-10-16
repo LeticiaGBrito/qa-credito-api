@@ -1,0 +1,24 @@
+# Arquivos gerados pelo Gradle
+.gradle/
+build/
+
+# Configurações locais do IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Configurações locais do VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Variáveis de ambiente locais
+.env
+.env.*
+!.env.example
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+Desktop.ini

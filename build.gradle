@@ -1,0 +1,52 @@
+plugins {
+    id 'java'
+}
+
+group = 'br.com.leticia.qa'
+version = '1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Leitura e geração de JSON pela API
+    implementation 'com.google.code.gson:gson:2.13.2'
+
+    // Requisições HTTP e validação das respostas das APIs
+    testImplementation 'io.rest-assured:rest-assured:5.5.6'
+
+    // Organização e execução dos testes com JUnit 5
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    // Inicialização da plataforma de testes pelo Gradle
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Atualiza uma dependência indireta utilizada pelo HttpClient
+    constraints {
+        testImplementation('commons-codec:commons-codec:1.23.0') {
+            because 'Substitui a versão antiga sinalizada pelo alerta de segurança'
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+
+    // Exibe o resultado de cada teste no console
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
